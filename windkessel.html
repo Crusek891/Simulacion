@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Simulador interactivo del modelo arterial Windkessel de dos elementos, con comparaciones, resultados y exportación." />
+  <title>Windkessel · Simulador del sistema arterial</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080f1d; --panel: #111c2e; --panel2: #162338;
+      --line: #293950; --text: #f4f7fd; --muted: #9caec3;
+      --accent: #66e0cb; --ref: #64adff; --rigid: #ffb36e;
+      --resist: #b3e292; --custom: #cbabff;
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background: radial-gradient(circle at 12% 4%,#16304b 0,transparent 33%),var(--bg); color:var(--text); font-family: Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.5; }
+    button, input { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset:3px; }
+    .shell { max-width: 1440px; margin:auto; padding:27px 24px 48px; }
+    .top { display:flex; gap:20px; align-items:start; justify-content:space-between; margin-bottom:27px; }
+    .eyebrow { text-transform:uppercase; letter-spacing:.14em; color:var(--accent); font-size:11px; font-weight:800; margin-bottom:8px; }
+    h1 {font-size:clamp(27px,4vw,42px); line-height:1.15; letter-spacing:-.035em; margin:0 0 9px; }
+    .intro { color:var(--muted); max-width:755px; font-size:14px; margin:0; }
+    .tag { white-space:nowrap; border:1px solid #31645f; color:var(--accent); background:#103432; border-radius:100px; padding:8px 14px; font-size:12px; font-weight:750; }
+    .layout { display:grid; grid-template-columns: 310px minmax(0,1fr); gap:18px; align-items:start; }
+    .stack { display:grid; gap:18px; min-width:0; }
+    .panel { background:linear-gradient(145deg,rgba(21,34,54,.95),rgba(15,26,43,.98)); border:1px solid var(--line); border-radius:var(--radius); padding:20px; min-width:0; box-shadow:0 12px 30px rgba(0,0,0,.12); }
+    .panel h2 { font-size:17px; letter-spacing:-.02em; margin:0; }
+    .hint {font-size:12px;color:var(--muted);margin:4px 0 17px; }
+    .param { margin-top:16px; }
+    .param-heading { display:flex;justify-content:space-between;gap:8px; align-items:baseline; margin-bottom:7px; font-size:13px; }
+    .param-heading label {color:#e1e9f4; }
+    .param-heading output { color:var(--accent); font-size:12px; font-variant-numeric:tabular-nums; text-align:right; }
+    input[type=range] {width:100%;accent-color:var(--accent);height:18px;cursor:pointer; margin:0; }
+    .range-ends {display:flex;justify-content:space-between;color:#7288a1;font-size:10px;margin-top:1px;}
+    .control-div {border-top:1px solid var(--line); margin:19px 0 4px; padding-top:17px; color:#e6ecf5; font-weight:700;font-size:13px;}
+    .subnote {color:var(--muted);font-size:11px;margin:15px 0 0;}
+    .headrow {display:flex;justify-content:space-between;gap:15px;align-items:center;flex-wrap:wrap;}
+    .mini-note {font-size:12px;color:var(--muted)}
+    .kpis {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0 8px;}
+    .kpi {border:1px solid #29425a;border-radius:13px;background:#12263a;padding:13px 15px;}
+    .kpi-label {color:var(--muted);font-size:11px;}
+    .kpi-value {font-size:23px;line-height:1.25;font-weight:770;letter-spacing:-.035em;font-variant-numeric:tabular-nums;margin-top:4px;}
+    .kpi-unit {font-size:11px;color:var(--muted);font-weight:500;margin-left:2px;}
+    .chart-header {display:flex;flex-wrap:wrap;gap:12px;align-items:start;justify-content:space-between; margin-bottom:12px;}
+    .segmented {display:flex;gap:2px;padding:3px;background:#0b1525;border:1px solid var(--line);border-radius:10px;}
+    .segmented button { border:0;background:none;color:var(--muted);font-size:12px;padding:7px 10px;border-radius:7px; }
+    .segmented button.active {background:#244052;color:white;}
+    .chart-wrap {position:relative;height:380px;width:100%;margin-top:3px;}
+    canvas {width:100%;height:100%;display:block;touch-action:pan-y;}
+    .tooltip {pointer-events:none; position:absolute; z-index:4; display:none; padding:10px 12px;background:#06111ff1;border:1px solid #38506d;border-radius:10px;font-size:11px;white-space:nowrap; box-shadow:0 8px 18px #0008;}
+    .tooltip strong {display:block;margin-bottom:5px;}
+    .tooltip .trow {display:flex;gap:18px;justify-content:space-between;}
+    .legend {display:flex; gap:9px 13px; flex-wrap:wrap; margin:12px 0 9px;}
+    .legend label {display:inline-flex; align-items:center;gap:7px;font-size:12px;color:#d9e5f4;cursor:pointer;}
+    .legend input {accent-color:var(--accent);}
+    .swatch {display:inline-block;width:15px;height:4px;border-radius:4px;}
+    .tools {display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:17px;}
+    .action {background:#20374a;color:white;border:1px solid #35506a;border-radius:10px;padding:10px 13px;font-size:12px;font-weight:700;transition:background .15s;}
+    .action:hover {background:#2a4e60;}
+    .action.primary {background:#1d766b;border-color:#348e81;}
+    .action.primary:hover {background:#248b7e;}
+    .table-scroll { overflow-x:auto; margin-top:12px; }
+    table {border-collapse:collapse;width:100%;min-width:630px;font-size:12px;font-variant-numeric:tabular-nums;}
+    th {text-align:right;color:#aabbd0;font-weight:650;background:#15283e;padding:12px 10px;border-bottom:1px solid #324258;white-space:nowrap;}
+    td {padding:12px 10px;text-align:right;border-bottom:1px solid #26364a;white-space:nowrap;}
+    th:first-child,td:first-child {text-align:left;}
+    tr:last-child td {border-bottom:0;}
+    td.scenario-name {font-weight:700;}
+    .dot {display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;}
+    .footnote {font-size:11px;color:var(--muted);margin:10px 0 0;}
+    .model-grid {display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+    .equation {border-radius:12px;background:#091828;border:1px solid #244054;text-align:center;font-size:clamp(15px,2vw,20px);letter-spacing:.005em;padding:21px 10px;font-weight:650;overflow-x:auto;}
+    .explainer p {font-size:13px;color:#bdcbda;margin:12px 0 0;}
+    .explainer b {color:var(--text)}
+    .notice {border-left:3px solid var(--accent);padding:9px 13px;background:#142b35;border-radius:5px 10px 10px 5px;color:#c0e5df;font-size:12px;margin-top:15px;}
+    .insight {color:#e2ecf5;font-size:13px;margin:11px 0 0;}
+    .footer {color:#758ba2;font-size:11px;line-height:1.6;margin-top:20px;}
+    @media(max-width:1010px) {.layout{grid-template-columns:1fr;} .sidebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;} .sidebar .panel {align-self:start;} }
+    @media(max-width:650px) {.shell{padding:19px 12px 36px;} .top{flex-direction:column;gap:10px;} .sidebar{grid-template-columns:1fr;} .kpis{grid-template-columns:1fr 1fr;}.kpi:last-child{grid-column:span 2;} .model-grid{grid-template-columns:1fr;} .panel{padding:15px;} .chart-wrap{height:320px;} .tag{font-size:10px;} }
+    @media(prefers-reduced-motion:reduce) {*{scroll-behavior:auto;transition:none!important}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <div>
+        <div class="eyebrow">Bioingeniería · Simulación biomecánica</div>
+        <h1>❤️ Modelo arterial Windkessel</h1>
+        <p class="intro">Explora la presión arterial en función del tiempo con el modelo de <strong>dos elementos (R–C)</strong>. Compara cómo cambian las curvas cuando se modifica la distensibilidad arterial, la resistencia periférica o el bombeo cardíaco.</p>
+      </div>
+      <span class="tag">INTERACTIVO · SIN INTERNET</span>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar stack">
+        <section class="panel" aria-labelledby="title-parameters">
+          <h2 id="title-parameters">⚙️ Parámetros del modelo</h2>
+          <p class="hint">Modifica R y C para crear un escenario personalizado.</p>
+          <div class="param"><div class="param-heading"><label for="R">Resistencia vascular (R)</label><output for="R" id="Rval">1.10 mmHg·s/mL</output></div><input id="R" type="range" min="0.5" max="2.2" step="0.05" value="1.1"/><div class="range-ends"><span>0.50</span><span>2.20</span></div></div>
+          <div class="param"><div class="param-heading"><label for="C">Distensibilidad arterial (C)</label><output for="C" id="Cval">1.50 mL/mmHg</output></div><input id="C" type="range" min="0.35" max="3" step="0.05" value="1.5"/><div class="range-ends"><span>0.35</span><span>3.00</span></div></div>
+          <div class="control-div">Estímulo cardíaco y condiciones iniciales</div>
+          <div class="param"><div class="param-heading"><label for="HR">Frecuencia cardíaca</label><output for="HR" id="HRval">75 lpm</output></div><input id="HR" type="range" min="45" max="140" step="5" value="75"/><div class="range-ends"><span>45</span><span>140</span></div></div>
+          <div class="param"><div class="param-heading"><label for="SV">Volumen sistólico</label><output for="SV" id="SVval">70 mL/latido</output></div><input id="SV" type="range" min="35" max="110" step="5" value="70"/><div class="range-ends"><span>35</span><span>110</span></div></div>
+          <div class="param"><div class="param-heading"><label for="P0">Presión inicial relativa</label><output for="P0" id="P0val">90 mmHg</output></div><input id="P0" type="range" min="40" max="140" step="5" value="90"/><div class="range-ends"><span>40</span><span>140</span></div></div>
+          <div class="param"><div class="param-heading"><label for="duration">Duración</label><output for="duration" id="durationval">12 s</output></div><input id="duration" type="range" min="8" max="24" step="2" value="12"/><div class="range-ends"><span>8 s</span><span>24 s</span></div></div>
+          <button class="action" type="button" id="reset" style="width:100%;margin-top:19px;">↺ Restablecer valores</button>
+          <p class="subnote">Los valores son ejemplos didácticos. La presión representada se mide respecto a una presión venosa de referencia, no como una evaluación clínica.</p>
+        </section>
+        <section class="panel" aria-labelledby="title-scenarios">
+          <h2 id="title-scenarios">🔎 Escenarios</h2>
+          <p class="hint">Los tres escenarios predefinidos conservan el mismo estímulo cardíaco para comparar únicamente R y C.</p>
+          <div style="display:grid;gap:11px;font-size:12px;color:#d1dfed;">
+            <div><span class="dot" style="background:var(--ref)"></span><strong>Referencia:</strong> R = 1.10, C = 1.50.</div>
+            <div><span class="dot" style="background:var(--rigid)"></span><strong>Más rigidez:</strong> R = 1.10, C = 0.75.</div>
+            <div><span class="dot" style="background:var(--resist)"></span><strong>Mayor resistencia:</strong> R = 1.50, C = 1.50.</div>
+            <div><span class="dot" style="background:var(--custom)"></span><strong>Personalizado:</strong> usa tus controles R y C.</div>
+          </div>
+          <div class="notice">Solo cambiamos la <strong>distensibilidad</strong> en el caso de arterias rígidas y la <strong>resistencia</strong> en el otro, para aislar sus efectos.</div>
+        </section>
+      </aside>
+
+      <div class="stack">
+        <section class="panel" aria-labelledby="plot-title">
+          <div class="headrow"><div><h2 id="plot-title">📈 Presión arterial a lo largo del tiempo</h2><div class="mini-note">Solución numérica de la ecuación diferencial · Runge–Kutta de orden 4</div></div></div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-label">Gasto cardíaco medio</div><div class="kpi-value" id="kpi-co">5.25<span class="kpi-unit">L/min</span></div></div>
+            <div class="kpi"><div class="kpi-label">Constante de tiempo personalizada (RC)</div><div class="kpi-value" id="kpi-tau">1.65<span class="kpi-unit">s</span></div></div>
+            <div class="kpi"><div class="kpi-label">Duración de un latido</div><div class="kpi-value" id="kpi-beat">0.80<span class="kpi-unit">s</span></div></div>
+          </div>
+          <div class="chart-header"><span class="mini-note" style="align-self:center;">Eje vertical: P relativa (mmHg) · Eje horizontal: t (s)</span><div class="segmented" role="group" aria-label="Ventana temporal"><button type="button" id="whole" class="active" aria-pressed="true">Todo el tiempo</button><button type="button" id="recent" aria-pressed="false">Últimos 4 s</button></div></div>
+          <div class="chart-wrap" id="chartWrap"><canvas id="chart" aria-label="Gráfica de la presión arterial respecto al tiempo, por escenario" role="img"></canvas><div class="tooltip" id="tooltip"></div></div>
+          <div class="legend" aria-label="Visibilidad de las curvas">
+            <label><input type="checkbox" data-line="reference" checked /><span class="swatch" style="background:var(--ref)"></span>Referencia</label>
+            <label><input type="checkbox" data-line="rigid" checked /><span class="swatch" style="background:var(--rigid)"></span>Arterias más rígidas</label>
+            <label><input type="checkbox" data-line="resist" checked /><span class="swatch" style="background:var(--resist)"></span>Mayor resistencia</label>
+            <label><input type="checkbox" data-line="custom" id="customToggle" /><span class="swatch" style="background:var(--custom)"></span>Personalizado</label>
+          </div>
+          <div class="tools"><button class="action primary" id="png" type="button">⬇ Guardar gráfica PNG</button><button class="action" id="csv" type="button">⬇ Exportar datos CSV</button></div>
+        </section>
+
+        <section class="panel" aria-labelledby="table-title">
+          <div class="headrow"><h2 id="table-title">📊 Comparación de resultados</h2><span class="mini-note">Promedios y extremos de los últimos 3 ciclos completos</span></div>
+          <div class="table-scroll"><table><thead><tr><th>Condición</th><th>R</th><th>C</th><th>P mín. (mmHg)</th><th>P máx. (mmHg)</th><th>P media (mmHg)</th><th>Presión de pulso (mmHg)</th></tr></thead><tbody id="results"></tbody></table></div>
+          <p class="footnote">R en mmHg·s/mL; C en mL/mmHg. Presión de pulso = P máxima − P mínima. Los valores muestran tendencias del modelo, no diagnósticos.</p>
+          <p class="insight" id="insight" aria-live="polite"></p>
+        </section>
+
+        <div class="model-grid">
+          <section class="panel explainer"><h2>🧮 Ecuación diferencial</h2><div class="equation" style="margin-top:14px;">Q<sub>in</sub>(t) = C · dP/dt + P/R</div><p>El <b>corazón</b> entrega un flujo pulsátil Q<sub>in</sub>(t). Parte de ese flujo distiende las arterias (término C·dP/dt) y otra parte sale hacia la periferia (P/R).</p><p>El flujo de entrada se representa con un <b>pulso semisenoidal de volumen 70 mL por latido</b> en el caso inicial, con una duración sistólica del 35 % de cada ciclo.</p></section>
+          <section class="panel explainer"><h2>🫀 Interpretación y límites</h2><p><b>Menor C:</b> la misma entrada de sangre genera oscilaciones mayores de presión, porque el reservorio arterial es menos distensible.</p><p><b>Mayor R:</b> aumenta la presión media en el modelo cuando el flujo medio se mantiene constante.</p><p><b>Limitaciones:</b> R y C son constantes; el modelo concentra todas las arterias en un compartimento. No describe ondas reflejadas, inercia de la sangre, distribución espacial ni mecanismos de regulación cardiovascular.</p></section>
+        </div>
+      </div>
+    </main>
+    <footer class="footer">Modelo didáctico Windkessel de dos elementos. Valores ilustrativos; presión P referida a la presión venosa (tomada como 0 mmHg). No destinado a diagnóstico médico. Referencia general: Westerhof, N., Lankhaar, J.-W. y Westerhof, B. E. (2009), <i>The arterial Windkessel</i>, Medical & Biological Engineering & Computing, 47, 131–141. DOI: 10.1007/s11517-008-0359-2.</footer>
+  </div>
+  <script>
+    'use strict';
+    // ---- Modelo físico (sin dependencias externas) ----
+    const SCENARIOS = [
+      {id:'reference',name:'Referencia',R:1.1,C:1.5,color:'#64adff'},
+      {id:'rigid',name:'Arterias más rígidas',R:1.1,C:0.75,color:'#ffb36e'},
+      {id:'resist',name:'Mayor resistencia',R:1.5,C:1.5,color:'#b3e292'},
+      {id:'custom',name:'Personalizado',R:1.1,C:1.5,color:'#cbabff'}
+    ];
+    const dt = 0.005; // s. La integración RK4 es adecuada a esta escala didáctica.
+    const $ = (id) => document.getElementById(id);
+    const inputs = { R:$('R'),C:$('C'),HR:$('HR'),SV:$('SV'),P0:$('P0'),duration:$('duration') };
+    const initial = {R:1.1,C:1.5,HR:75,SV:70,P0:90,duration:12};
+    let visibility = {reference:true,rigid:true,resist:true,custom:false};
+    let view = 'whole';
+    let simulations = [];
+    let chartData = null;
+    let cursorTime = null;
+
+    function inflow(t, HR, SV) {
+      // Integral sobre la sístole = volumen sistólico (mL/latido).
+      const period = 60/HR;
+      const systole = 0.35*period;
+      const phase = ((t%period)+period)%period;
+      if (phase >= systole) return 0;
+      return SV*Math.PI/(2*systole)*Math.sin(Math.PI*phase/systole);
+    }
+
+    function simulate(R,C,HR,SV,P0,duration) {
+      const N = Math.round(duration/dt);
+      const time = new Float64Array(N+1);
+      const pressures = new Float64Array(N+1);
+      pressures[0]=P0;
+      const f = (t,p) => (inflow(t,HR,SV)-p/R)/C;
+      for(let i=0;i<N;i++){
+        const t=i*dt, p=pressures[i];
+        const k1=f(t,p), k2=f(t+dt/2,p+dt*k1/2);
+        const k3=f(t+dt/2,p+dt*k2/2), k4=f(t+dt,p+dt*k3);
+        pressures[i+1]=p+dt*(k1+2*k2+2*k3+k4)/6;
+        time[i+1]=(i+1)*dt;
+      }
+      const T=60/HR;
+      const nFull=Math.floor(duration/T+1e-9);
+      const end=nFull*T;
+      const start=Math.max(0,(nFull-3)*T);
+      let min=Infinity,max=-Infinity,sum=0,count=0;
+      for(let i=0;i<=N;i++){
+        if(time[i]+1e-9<start || time[i]>end+1e-9) continue;
+        const p=pressures[i]; min=Math.min(min,p);max=Math.max(max,p);sum+=p;count++;
+      }
+      const mean=sum/count;
+      return {R,C,time,pressures,stats:{min,max,mean,pulse:max-min,start,end}};
+    }
+
+    function state(){return Object.fromEntries(Object.entries(inputs).map(([k,v])=>[k,Number(v.value)]));}
+    function displayed(){return simulations.filter(s=>visibility[s.id]);}
+    function fmt(n,decimals=1){return Number(n).toFixed(decimals);}
+    function calculate(){
+      const p=state();
+      SCENARIOS[3].R=p.R; SCENARIOS[3].C=p.C;
+      simulations=SCENARIOS.map(s=>({...s,...simulate(s.R,s.C,p.HR,p.SV,p.P0,p.duration)}));
+      $('Rval').textContent=fmt(p.R,2)+' mmHg·s/mL';
+      $('Cval').textContent=fmt(p.C,2)+' mL/mmHg';
+      $('HRval').textContent=p.HR+' lpm';
+      $('SVval').textContent=p.SV+' mL/latido';
+      $('P0val').textContent=p.P0+' mmHg';
+      $('durationval').textContent=p.duration+' s';
+      $('kpi-co').innerHTML=fmt(p.HR*p.SV/1000,2)+'<span class="kpi-unit">L/min</span>';
+      $('kpi-tau').innerHTML=fmt(p.R*p.C,2)+'<span class="kpi-unit">s</span>';
+      $('kpi-beat').innerHTML=fmt(60/p.HR,2)+'<span class="kpi-unit">s</span>';
+      renderTable(); renderChart();
+    }
+
+    function renderTable(){
+      $('results').innerHTML=displayed().map(s=>`<tr><td class="scenario-name"><span class="dot" style="background:${s.color}"></span>${s.name}</td><td>${fmt(s.R,2)}</td><td>${fmt(s.C,2)}</td><td>${fmt(s.stats.min)}</td><td>${fmt(s.stats.max)}</td><td>${fmt(s.stats.mean)}</td><td>${fmt(s.stats.pulse)}</td></tr>`).join('') || '<tr><td colspan="7">Selecciona al menos una curva en la leyenda para mostrar resultados.</td></tr>';
+      const ref=simulations[0],rig=simulations[1],res=simulations[2];
+      const deltaPulse=rig.stats.pulse-ref.stats.pulse;
+      const deltaMean=res.stats.mean-ref.stats.mean;
+      $('insight').textContent=`Con la misma entrada cardíaca, reducir C de 1.50 a 0.75 aumenta la presión de pulso calculada en ${fmt(deltaPulse)} mmHg. Aumentar R de 1.10 a 1.50 eleva la presión media calculada en ${fmt(deltaMean)} mmHg. Las diferencias dependen de los parámetros elegidos.`;
+    }
+
+    function renderChart(){
+      const canvas=$('chart'),wrap=$('chartWrap');
+      const rect=wrap.getBoundingClientRect();
+      const w=Math.max(300,rect.width),h=Math.max(260,rect.height),dpr=Math.min(window.devicePixelRatio||1,2);
+      canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+      const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.clearRect(0,0,w,h);
+      const plot={l:53,t:13,r:w-16,b:h-35};
+      const show=displayed();
+      const total=state().duration;
+      const from=view==='recent'?Math.max(0,total-4):0;
+      const to=total;
+      let yMin=Infinity,yMax=-Infinity;
+      for(const s of show){
+        const a=Math.max(0,Math.floor(from/dt)),b=Math.min(s.time.length-1,Math.ceil(to/dt));
+        for(let i=a;i<=b;i++){yMin=Math.min(yMin,s.pressures[i]);yMax=Math.max(yMax,s.pressures[i]);}
+      }
+      if(!Number.isFinite(yMin)){yMin=0;yMax=130;}
+      const pad=Math.max(5,(yMax-yMin)*0.12);
+      yMin=Math.max(0,Math.floor((yMin-pad)/10)*10);
+      yMax=Math.ceil((yMax+pad)/10)*10;
+      if(yMax<=yMin)yMax=yMin+10;
+      const px=t=>plot.l+(t-from)/(to-from)*(plot.r-plot.l);
+      const py=p=>plot.b-(p-yMin)/(yMax-yMin)*(plot.b-plot.t);
+      chartData={plot,from,to,yMin,yMax,w,h,px,py};
+      ctx.font='11px system-ui, sans-serif';ctx.textBaseline='middle';
+      for(let j=0;j<=5;j++){
+        const val=yMin+(yMax-yMin)*j/5,y=py(val);
+        ctx.strokeStyle='#273a50';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(plot.l,y);ctx.lineTo(plot.r,y);ctx.stroke();
+        ctx.fillStyle='#a6b8cf';ctx.textAlign='right';ctx.fillText(fmt(val,0),plot.l-10,y);
+      }
+      for(let j=0;j<=5;j++){
+        const t=from+(to-from)*j/5,x=px(t);
+        ctx.strokeStyle='#26354a';ctx.beginPath();ctx.moveTo(x,plot.t);ctx.lineTo(x,plot.b);ctx.stroke();
+        ctx.fillStyle='#a6b8cf';ctx.textAlign='center';ctx.fillText(fmt(t,1),x,plot.b+16);
+      }
+      ctx.save(); ctx.beginPath();ctx.rect(plot.l,plot.t,plot.r-plot.l,plot.b-plot.t);ctx.clip();
+      for(const s of show){
+        ctx.strokeStyle=s.color; ctx.lineWidth=2.2;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+        const a=Math.max(0,Math.floor(from/dt)),b=Math.min(s.time.length-1,Math.ceil(to/dt));
+        for(let i=a;i<=b;i++){
+          const x=px(s.time[i]),y=py(s.pressures[i]);
+          if(i===a) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+      }
+      if(cursorTime!==null && cursorTime>=from && cursorTime<=to){
+        const x=px(cursorTime);ctx.strokeStyle='#ffffff91';ctx.lineWidth=1;ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(x,plot.t);ctx.lineTo(x,plot.b);ctx.stroke();ctx.setLineDash([]);
+        for(const s of show){const idx=Math.min(s.pressures.length-1,Math.round(cursorTime/dt));ctx.beginPath();ctx.arc(x,py(s.pressures[idx]),3.4,0,Math.PI*2);ctx.fillStyle=s.color;ctx.fill();}
+      }
+      ctx.restore();
+      ctx.font='11px system-ui, sans-serif';ctx.fillStyle='#a6b8cf';ctx.textAlign='center';ctx.fillText('Tiempo (s)',plot.l+(plot.r-plot.l)/2,h-7);
+      ctx.save();ctx.translate(13,(plot.t+plot.b)/2);ctx.rotate(-Math.PI/2);ctx.fillText('Presión (mmHg)',0,0);ctx.restore();
+      if(!show.length){ctx.fillStyle='#a6b8cf';ctx.textAlign='center';ctx.font='13px system-ui';ctx.fillText('Activa una condición en la leyenda',w/2,h/2);}
+    }
+
+    // ---- Interacción ----
+    for(const [name,element] of Object.entries(inputs)){
+      element.addEventListener('input',()=>{
+        if(name==='R'||name==='C') { visibility.custom=true;$('customToggle').checked=true; }
+        calculate();
+      });
+    }
+    document.querySelectorAll('[data-line]').forEach(box=>box.addEventListener('change',()=>{
+      visibility[box.dataset.line]=box.checked;calculate();
+    }));
+    $('whole').addEventListener('click',()=>setView('whole'));
+    $('recent').addEventListener('click',()=>setView('recent'));
+    function setView(v){view=v;for(const n of ['whole','recent']){$(n).classList.toggle('active',n===v);$(n).setAttribute('aria-pressed',String(n===v));}cursorTime=null;$('tooltip').style.display='none';renderChart();}
+    $('reset').addEventListener('click',()=>{
+      for(const [k,val] of Object.entries(initial)) inputs[k].value=val;
+      visibility={reference:true,rigid:true,resist:true,custom:false};
+      document.querySelectorAll('[data-line]').forEach(box=>box.checked=visibility[box.dataset.line]);
+      setView('whole');calculate();
+    });
+    function saveBlob(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
+    $('png').addEventListener('click',()=>{$('chart').toBlob(blob=>{if(blob)saveBlob(blob,'windkessel_presion.png');},'image/png');});
+    $('csv').addEventListener('click',()=>{
+      const p=state();
+      const header=['tiempo_s','flujo_entrada_mL_s','presion_referencia_mmHg','presion_rigidas_mmHg','presion_mayor_resistencia_mmHg','presion_personalizada_mmHg'];
+      const lines=[`# Windkessel de dos elementos; HR=${p.HR} lpm; SV=${p.SV} mL/latido; P0=${p.P0} mmHg; R personalizada=${p.R} mmHg*s/mL; C personalizada=${p.C} mL/mmHg`,header.join(',')];
+      for(let i=0;i<simulations[0].time.length;i+=4){
+        const t=simulations[0].time[i];
+        lines.push([fmt(t,3),fmt(inflow(t,p.HR,p.SV),5),...simulations.map(s=>fmt(s.pressures[i],5))].join(','));
+      }
+      const b=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+      saveBlob(b,'windkessel_resultados.csv');
+    });
+    $('chart').addEventListener('mousemove',event=>{
+      const data=chartData;if(!data)return;
+      const rect=$('chart').getBoundingClientRect();const mx=event.clientX-rect.left,my=event.clientY-rect.top;
+      if(mx<data.plot.l||mx>data.plot.r||my<data.plot.t||my>data.plot.b){cursorTime=null;$('tooltip').style.display='none';renderChart();return;}
+      cursorTime=data.from+(mx-data.plot.l)/(data.plot.r-data.plot.l)*(data.to-data.from);
+      const idx=Math.max(0,Math.min(simulations[0].pressures.length-1,Math.round(cursorTime/dt)));
+      const tip=$('tooltip');
+      const rows=displayed().map(s=>`<div class="trow"><span style="color:${s.color}">● ${s.name}</span><b>${fmt(s.pressures[idx])} mmHg</b></div>`).join('');
+      tip.innerHTML=`<strong>t = ${fmt(cursorTime,2)} s</strong>${rows}`;
+      tip.style.display='block';
+      const tw=tip.offsetWidth,th=tip.offsetHeight;
+      tip.style.left=Math.max(7,Math.min(data.w-tw-7,mx+15))+'px';
+      tip.style.top=Math.max(7,Math.min(data.h-th-7,my-th-10))+'px';
+      renderChart();
+    });
+    $('chart').addEventListener('mouseleave',()=>{cursorTime=null;$('tooltip').style.display='none';renderChart();});
+    if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>renderChart()).observe($('chartWrap'));
+    else window.addEventListener('resize',renderChart);
+    calculate();
+  </script>
+</body>
+</html>
